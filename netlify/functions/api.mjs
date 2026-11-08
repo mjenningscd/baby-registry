@@ -93,7 +93,7 @@ export default async (req) => {
       const items = cfg.items.filter((i) => admin || (i.name && i.price != null));
       const ps = purchases.map((p) => admin ? p : { id: p.id, itemId: p.itemId, qty: p.qty, name: p.surprise ? null : p.name, message: p.surprise ? null : p.message, surprise: !!p.surprise, at: p.at });
       const images = Object.assign({}, cfg.images || {}); images.v = cfg.imgV || 0;
-      return json({ items, removed: cfg.removed, wanted: cfg.wanted, images, purchases: ps, admin });
+      return json({ items, removed: cfg.removed, wanted: cfg.wanted, images, purchases: ps, admin, ownerReady: !!process.env.ADMIN_PASSWORD });
     }
 
     if (path === "purchase" && method === "POST") {
