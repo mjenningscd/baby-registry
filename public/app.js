@@ -260,6 +260,7 @@ $("#sort").addEventListener("change",e=>{sort=e.target.value;render()});
 $("#manageBtn").onclick=()=>{managing=!managing;$("#manageBtn").textContent=managing?"Done editing":"Edit or remove items";render()};
 $("#addBtn").onclick=()=>{if(isOwner)openAdd()};
 $("#giftsBtn").onclick=()=>{if(isOwner)openGifts()};
+$("#ownerLink").onclick=()=>{if(isOwner){toast("You're already signed in. Your tools are at the top of the page.");scrollTo({top:0,behavior:"smooth"})}else openLogin()};
 $("#signOut").onclick=()=>{try{localStorage.removeItem("adminKey")}catch(_){}location.hash="";location.reload()};
 
 async function load(){
