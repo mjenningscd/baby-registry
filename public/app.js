@@ -31,7 +31,7 @@ const gotOf=it=>purchases.filter(p=>p.itemId===it.id).reduce((a,p)=>a+(p.qty||0)
 const leftOf=it=>Math.max(0,wantOf(it)-gotOf(it));
 const buyUrl=it=>it.url||("https://www.google.com/search?tbm=shop&gl=au&q="+encodeURIComponent(it.name));
 const buyLabel=it=>it.url?("Buy at "+it.store):"Find it online";
-const photoOf=it=>images[it.id]||(it.custom?(it.image||null):(it.url?"/api/img/"+encodeURIComponent(it.id)+(images.v?"?v="+images.v:""):null));
+const photoOf=it=>images[it.id]||it.image||(it.custom?(it.image||null):(it.url?"/api/img/"+encodeURIComponent(it.id)+(images.v?"?v="+images.v:""):null));
 
 async function api(path,opts={}){
   const headers={"content-type":"application/json"};
