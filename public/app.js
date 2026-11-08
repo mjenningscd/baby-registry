@@ -1,6 +1,6 @@
 (function(){
 const CATS=["Baby gear","Feeding","Sleeping","Nappies","Health & safety","Clothing","Playing","Nursery & decor","Mum","Bathing","General"];
-const TINT={"Baby gear":["#dfe7ee","#34506a"],"Feeding":["#efe6dc","#7a5a3c"],"Sleeping":["#e3e3f0","#4a4a7a"],"Nappies":["#e4ece6","#45644d"],"Health & safety":["#f0e1e1","#8a4646"],"Clothing":["#efe4ea","#7a4a62"],"Playing":["#ece9da","#6b6230"],"Nursery & decor":["#e2ecec","#3d6666"],"Mum":["#f1e5e0","#8a5040"],"Bathing":["#dcebf0","#2f6577"],"General":["#e7e7e4","#55554f"]};
+const TINT={"Baby gear":["#f3dfb0","#a0732a"],"Feeding":["#d6e5ef","#4f7591"],"Sleeping":["#dde6d2","#5f7a52"],"Nappies":["#f3dfb0","#a0732a"],"Health & safety":["#d6e5ef","#4f7591"],"Clothing":["#dde6d2","#5f7a52"],"Playing":["#f3dfb0","#a0732a"],"Nursery & decor":["#d6e5ef","#4f7591"],"Mum":["#dde6d2","#5f7a52"],"Bathing":["#d6e5ef","#4f7591"],"General":["#f3dfb0","#a0732a"]};
 const ICON={
  "Baby gear":'<circle cx="17" cy="44" r="5"/><circle cx="45" cy="44" r="5"/><path d="M8 14h8l6 22h26l6-18H20"/><path d="M38 18c0-8 7-12 14-10"/>',
  "Feeding":'<path d="M24 6h12v6H24z"/><path d="M22 12h16l3 8v30a4 4 0 0 1-4 4H23a4 4 0 0 1-4-4V20z"/><path d="M19 28h22M19 38h22"/>',
@@ -70,7 +70,7 @@ function confetti(fromEl){
   c.width=innerWidth*dpr;c.height=innerHeight*dpr;
   const r=fromEl?fromEl.getBoundingClientRect():{left:innerWidth/2,top:innerHeight*.7,width:0,height:0};
   const ox=(r.left+r.width/2)*dpr, oy=(r.top+r.height/2)*dpr;
-  const cols=["#34506a","#9fb9d1","#e8b4b8","#f3d9a4","#b7cfb9","#c9b8e0","#ffffff"];
+  const cols=["#e3b459","#f0c862","#9cb08a","#b7c9a5","#a9c6dc","#f3dfb0","#fffdf7"];
   const ps=[];
   const burst=(x0,y0,n,spread)=>{for(let i=0;i<n;i++){const a=-Math.PI/2+(Math.random()-.5)*spread,v=(Math.random()*14+9)*dpr;
     ps.push({x:x0,y:y0,vx:Math.cos(a)*v,vy:Math.sin(a)*v,w:(Math.random()*7+5)*dpr,h:(Math.random()*4+3)*dpr,rot:Math.random()*6.28,vr:(Math.random()-.5)*.35,c:cols[i%cols.length],shape:Math.random()<.25?"c":"r",life:0})}};
