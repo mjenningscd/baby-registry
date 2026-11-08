@@ -16,7 +16,9 @@ const ICON={
 };
 const PICKS=new Set(["maxicosi-monitor","eufy-s1-pro","bunjie-bundle","momcozy-kleanpal","teddy-clouds","babybjorn-carrier-mini","jengo-bouncer","sable-nappybag"]);
 
-let BASE=[], CATALOG=[], custom=[], removed=new Set(), wanted={}, purchases=[];
+let BASE=[], CATALOG=[], custom=[], removed=new Set(), wanted={}, purchases=[], images={}, lastState="";
+const loadedPhotos=new Set();
+window.__photoOk=(el,id)=>{loadedPhotos.add(id);el.parentNode.classList.add("has-photo")};
 let isOwner=false, managing=false, adminKey=null;
 let cat="All", show="needed", query="", sort="rec";
 
@@ -29,7 +31,7 @@ const gotOf=it=>purchases.filter(p=>p.itemId===it.id).reduce((a,p)=>a+(p.qty||0)
 const leftOf=it=>Math.max(0,wantOf(it)-gotOf(it));
 const buyUrl=it=>it.url||("https://www.google.com/search?tbm=shop&gl=au&q="+encodeURIComponent(it.name));
 const buyLabel=it=>it.url?("Buy at "+it.store):"Find it online";
-const photoOf=it=>it.custom?(it.image||null):(it.url?"/api/img/"+encodeURIComponent(it.id):null);
+const photoOf=it=>images[it.id]||(it.custom?(it.image||null):(it.url?"/api/img/"+encodeURIComponent(it.id)+(images.v?"?v="+images.v:""):null));
 
 async function api(path,opts={}){
   const headers={"content-type":"application/json"};
@@ -47,7 +49,7 @@ function rebuild(){
 function icon(it,cls){const fg=(TINT[it.cat]||TINT.General)[1];return `<svg class="${cls||"ic"}" viewBox="0 0 64 64" fill="none" stroke="${fg}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[it.cat]||ICON.General}</svg>`}
 function media(it,cls){
   const p=photoOf(it);
-  return icon(it,cls)+(p?`<img class="photo" src="${esc(p)}" alt="" loading="lazy" referrerpolicy="no-referrer" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()">`:"");
+  return icon(it,cls)+(p?`<img class="photo" src="${esc(p)}" alt="" referrerpolicy="no-referrer" decoding="async" onload="__photoOk(this,'${it.id}')" onerror="this.remove()">`:"");
 }
 
 /* Hero sky */
@@ -105,9 +107,9 @@ function card(it,i){
   const badge=PICKS.has(it.id)&&!done?`<span class="badge most">Most wanted</span>`:(want>1&&!done?`<span class="badge">Need ${want}</span>`:"");
   const pend=isOwner&&it.pending?`<span class="badge" style="top:auto;bottom:12px">Needs a name &amp; price</span>`:"";
   const owner=managing?`<div class="owner-qty"><span>Wanted</span><span class="stepper"><button type="button" data-wq="${it.id}" data-d="-1" aria-label="Fewer">−</button><output class="num">${want}</output><button type="button" data-wq="${it.id}" data-d="1" aria-label="More">+</button></span></div>
-    <div class="acts">${it.custom?`<button class="btn" type="button" data-edit="${it.id}">Edit details</button>`:`<button class="btn" type="button" data-photo="${it.id}">Reload photo</button>`}<button class="btn" type="button" data-remove="${it.id}" style="color:#a04545">Remove</button></div>`:"";
+    <div class="acts">${it.custom?`<button class="btn" type="button" data-edit="${it.id}">Edit details</button>`:`<button class="btn" type="button" data-photo="${it.id}">Change photo</button>`}<button class="btn" type="button" data-remove="${it.id}" style="color:#a04545">Remove</button></div>`:"";
   return `<article class="card ${done?"done":""}" style="animation-delay:${Math.min(i,16)*30}ms">
-    <button class="tile" style="background:${bg}" data-open="${it.id}" aria-label="More about ${esc(it.name)}">${media(it)}${badge}${pend}${done?'<span class="stamp">Gifted ♡</span>':""}</button>
+    <button class="tile ${loadedPhotos.has(it.id)?"has-photo":""}" style="background:${bg}" data-open="${it.id}" aria-label="More about ${esc(it.name)}">${media(it)}${badge}${pend}${done?'<span class="stamp">Gifted ♡</span>':""}</button>
     <div class="body">
       <div class="store">${esc(it.store||"Available online")}</div>
       <button class="name" data-open="${it.id}">${esc(it.name)}</button>
@@ -142,7 +144,7 @@ function openDetail(it){
   const bg=(TINT[it.cat]||TINT.General)[0],left=leftOf(it),want=wantOf(it);
   const given=purchases.filter(p=>p.itemId===it.id);
   const list=given.length?`<ul class="gifters">${given.map(p=>`<li><b>${p.surprise&&!isOwner?"A surprise gift":esc(p.name||"Someone special")}</b> · ${p.qty} ${p.qty>1?"items":"item"}${p.message?`<small>“${esc(p.message)}”</small>`:""}${isOwner?`<small><button class="btn" style="padding:4px 10px;margin-top:6px" data-undo="${p.id}">Remove this purchase</button></small>`:""}</li>`).join("")}</ul>`:"";
-  openSheet(`<div class="detail-tile tile" style="background:${bg}">${media(it,"")}</div>
+  openSheet(`<div class="detail-tile tile ${loadedPhotos.has(it.id)?"has-photo":""}" style="background:${bg}">${media(it,"")}</div>
     <span class="eyebrow">${esc(it.cat)}</span><h3 id="sheetTitle">${esc(it.name)}</h3>
     <p class="sub">${it.price!=null?`<b class="num">${money(it.price)}</b> at ${esc(it.store)} · `:""}${left?`Still needed: <b>${left}</b> of ${want}`:"All gifted, thank you"}</p>
     <div class="acts"><a class="btn" href="${esc(buyUrl(it))}" target="_blank" rel="noopener">${esc(buyLabel(it))} ↗</a><button class="btn primary" type="button" data-buy="${it.id}" ${left?"":'aria-disabled="true"'}>I bought this</button></div>${list}`);
@@ -213,6 +215,15 @@ function openAdd(prefill){
     try{await api(p.id?"admin/edit":"admin/add",{method:"POST",body:JSON.stringify(body)});closeSheet();toast(p.id?"Saved.":"Added to the registry.");await load()}
     catch(err){btn.disabled=false;toast(err.message)}};
 }
+function openPhoto(it){
+  openSheet(`<span class="eyebrow">Photo</span><h3 id="sheetTitle">${esc(it.name)}</h3>
+    <p class="sub">Some stores block other sites from reading their photos. On the product page, right-click (or long-press) the main photo, choose <b>Copy Image Address</b>, and paste it here.</p>
+    <form id="photoForm"><div class="field"><label for="phUrl">Photo link</label><input id="phUrl" type="url" value="${esc(images[it.id]||"")}" placeholder="https://…jpg"></div>
+    <div id="phPrev"></div>
+    <div class="acts"><button class="btn" type="button" data-photo-reset="${it.id}">Try the store again</button><button class="btn primary" type="submit">Save photo</button></div></form>`);
+  const prev=()=>{const v=$("#phUrl").value;$("#phPrev").innerHTML=v?`<div class="tile has-photo" style="background:#fff;border-radius:14px;aspect-ratio:16/10;margin-bottom:14px"><img class="photo" src="${esc(v)}" alt="" referrerpolicy="no-referrer"></div>`:""};prev();$("#phUrl").addEventListener("input",prev);
+  $("#photoForm").onsubmit=async e=>{e.preventDefault();try{await api("admin/photo",{method:"POST",body:JSON.stringify({id:it.id,image:$("#phUrl").value.trim()})});loadedPhotos.delete(it.id);closeSheet();toast("Photo saved.");lastState="";load()}catch(err){toast(err.message)}};
+}
 function openRemove(it){
   openSheet(`<span class="eyebrow">Remove item</span><h3 id="sheetTitle">${esc(it.name)}</h3>
     <p class="sub">This takes it off the registry for everyone. ${gotOf(it)?`<b>${gotOf(it)} already gifted</b>; those gifts stay in your "who gave what" list.`:""}</p>
@@ -236,7 +247,8 @@ document.addEventListener("click",async e=>{
   if(!isOwner)return;
   const w=t.closest("[data-wq]");if(w){const it=CATALOG.find(x=>x.id===w.dataset.wq);const v=Math.max(gotOf(it),Math.max(0,wantOf(it)+ +w.dataset.d));wanted[it.id]=v;render();try{await api("admin/wanted",{method:"POST",body:JSON.stringify({id:it.id,qty:v})})}catch(err){toast(err.message)}return}
   const ed=t.closest("[data-edit]");if(ed){openAdd(custom.find(x=>x.id===ed.dataset.edit));return}
-  const ph=t.closest("[data-photo]");if(ph){try{await api("admin/refresh-photo",{method:"POST",body:JSON.stringify({id:ph.dataset.photo})});toast("Photo will reload shortly.");setTimeout(()=>location.reload(),900)}catch(err){toast(err.message)}return}
+  const ph=t.closest("[data-photo]");if(ph){openPhoto(CATALOG.find(x=>x.id===ph.dataset.photo));return}
+  const pr=t.closest("[data-photo-reset]");if(pr){try{await api("admin/refresh-photo",{method:"POST",body:JSON.stringify({id:pr.dataset.photoReset})});loadedPhotos.delete(pr.dataset.photoReset);closeSheet();toast("Checking the store again…");lastState="";load()}catch(err){toast(err.message)}return}
   const rm=t.closest("[data-remove]");if(rm){openRemove(CATALOG.find(x=>x.id===rm.dataset.remove));return}
   const cr=t.closest("[data-confirm-remove]");if(cr){try{await api("admin/remove",{method:"POST",body:JSON.stringify({id:cr.dataset.confirmRemove})});closeSheet();toast("Removed from the registry.");load()}catch(err){toast(err.message)}return}
   const rs=t.closest("[data-restore]");if(rs){try{await api("admin/restore",{method:"POST",body:JSON.stringify({id:rs.dataset.restore})});closeSheet();toast("It's back on the registry.");load()}catch(err){toast(err.message)}return}
@@ -251,7 +263,7 @@ $("#giftsBtn").onclick=openGifts;
 $("#signOut").onclick=()=>{try{localStorage.removeItem("adminKey")}catch(_){}location.hash="";location.reload()};
 
 async function load(){
-  try{const s=await api("state");custom=s.items||[];removed=new Set(s.removed||[]);wanted=s.wanted||{};purchases=s.purchases||[];$("#banner").hidden=true;render()}
+  try{const s=await api("state");const sig=JSON.stringify(s);$("#banner").hidden=true;if(sig===lastState)return;lastState=sig;custom=s.items||[];removed=new Set(s.removed||[]);wanted=s.wanted||{};purchases=s.purchases||[];images=s.images||{};render()}
   catch(_){$("#banner").hidden=false;$("#banner").textContent="Couldn't reach the registry just now. It'll keep trying."}
 }
 

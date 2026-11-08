@@ -14,7 +14,7 @@ async function catalog(req) {
 }
 
 async function getConfig() {
-  return (await store().get("config", { type: "json" })) || { items: [], removed: [], wanted: {} };
+  return (await store().get("config", { type: "json" })) || { items: [], removed: [], wanted: {}, images: {} };
 }
 const saveConfig = (c) => store().setJSON("config", c);
 
@@ -92,7 +92,8 @@ export default async (req) => {
       const admin = isAdmin(req);
       const items = cfg.items.filter((i) => admin || (i.name && i.price != null));
       const ps = purchases.map((p) => admin ? p : { id: p.id, itemId: p.itemId, qty: p.qty, name: p.surprise ? null : p.name, message: p.surprise ? null : p.message, surprise: !!p.surprise, at: p.at });
-      return json({ items, removed: cfg.removed, wanted: cfg.wanted, purchases: ps, admin });
+      const images = Object.assign({}, cfg.images || {}); images.v = cfg.imgV || 0;
+      return json({ items, removed: cfg.removed, wanted: cfg.wanted, images, purchases: ps, admin });
     }
 
     if (path === "purchase" && method === "POST") {
@@ -116,6 +117,7 @@ export default async (req) => {
       const id = decodeURIComponent(path.slice(4));
       const s = store();
       let cached = await s.get("img/" + id, { type: "json" });
+      if (cached && !cached.image && Date.now() - (cached.at || 0) > 86400000) cached = null;
       if (!cached) {
         const cat = await catalog(req);
         const item = cat.find((i) => i.id === id);
@@ -189,6 +191,16 @@ export default async (req) => {
       }
       if (action === "refresh-photo") {
         await store().delete("img/" + clean(b.id, 100));
+        cfg.images = cfg.images || {}; delete cfg.images[clean(b.id, 100)]; cfg.imgV = (cfg.imgV || 0) + 1;
+        await saveConfig(cfg);
+        return json({ ok: true });
+      }
+      if (action === "photo") {
+        const img = clean(b.image, 1500);
+        cfg.images = cfg.images || {};
+        if (img && !/^https?:\/\//i.test(img)) return json({ error: "Please paste a full image link starting with https://" }, 400);
+        if (img) cfg.images[clean(b.id, 100)] = img; else delete cfg.images[clean(b.id, 100)];
+        await saveConfig(cfg);
         return json({ ok: true });
       }
     }
