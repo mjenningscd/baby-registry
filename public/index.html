@@ -32,7 +32,8 @@ a{color:inherit}
 .eyebrow{font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted)}
 .hero h1{font-family:var(--display);font-weight:700;font-size:clamp(64px,13vw,132px);line-height:.9;margin:0;text-wrap:balance}
 .hero h1 .jn{position:relative;display:inline-block}
-.hero h1 .bee{position:absolute;left:calc(50% - 150px);top:-2px;width:170px;height:50px}
+.hero-in{z-index:1}
+.hero h1 .bee{z-index:-1;position:absolute;left:calc(50% - 150px);top:-2px;width:170px;height:50px}
 .hero h1 em{font-style:normal;color:var(--dusk)}
 .hero p{font-style:italic;font-size:19px!important}
 .hero-art{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
