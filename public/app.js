@@ -258,8 +258,8 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
 $("#q").addEventListener("input",e=>{query=e.target.value.trim().toLowerCase();render()});
 $("#sort").addEventListener("change",e=>{sort=e.target.value;render()});
 $("#manageBtn").onclick=()=>{managing=!managing;$("#manageBtn").textContent=managing?"Done editing":"Edit or remove items";render()};
-$("#addBtn").onclick=()=>openAdd();
-$("#giftsBtn").onclick=openGifts;
+$("#addBtn").onclick=()=>{if(isOwner)openAdd()};
+$("#giftsBtn").onclick=()=>{if(isOwner)openGifts()};
 $("#signOut").onclick=()=>{try{localStorage.removeItem("adminKey")}catch(_){}location.hash="";location.reload()};
 
 async function load(){
