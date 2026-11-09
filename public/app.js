@@ -193,13 +193,24 @@ function openAdd(prefill){
       <div class="field"><label for="aName">Name</label><input id="aName" maxlength="140" value="${esc(p.name||"")}"></div>
       <div class="field"><label for="aPrice">Price ($)</label><input id="aPrice" inputmode="decimal" value="${p.price!=null?p.price:""}"></div>
       <div class="field"><label for="aStore">Store</label><input id="aStore" maxlength="60" value="${esc(p.store||"")}"></div>
-      <div class="field"><label for="aImg">Photo link</label><input id="aImg" type="url" value="${esc(p.image||"")}"></div>
+      <div class="field"><label for="aImg">Photo</label>
+        <div class="acts"><label class="btn" for="aFile" style="cursor:pointer">Choose a photo</label><button class="btn" type="button" id="aPasteBtn">Paste copied photo</button></div>
+        <input id="aFile" type="file" accept="image/*" hidden>
+        <small style="color:var(--muted)">Copy the photo on the store's page, then tap Paste (or press Cmd+V / Ctrl+V here). A screenshot works too. Or paste a photo link:</small>
+        <input id="aImg" type="text" inputmode="url" value="${esc(p.image||"")}" placeholder="https://…"></div>
       <div class="field"><label for="aCat">Category</label><select id="aCat" class="sort" style="border-radius:12px;padding:11px 13px">${CATS.map(c=>`<option ${c===(p.cat||"General")?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
       ${p.id?"":`<div class="field"><label>How many do you want?</label><span class="stepper"><button type="button" data-an="-1" aria-label="One fewer">−</button><output class="num" id="aN">1</output><button type="button" data-an="1" aria-label="One more">+</button></span></div>`}
       <button class="btn primary" style="width:100%;padding:14px" type="submit">${p.id?"Save changes":"Add to registry"}</button>
     </form>`);
   const preview=()=>{const src=$("#aImg").value;$("#aPreview").innerHTML=src?`<div class="tile has-photo" style="background:#fff;border-radius:14px;aspect-ratio:16/10;margin-bottom:14px"><img class="photo" src="${esc(src)}" alt="" referrerpolicy="no-referrer"></div>`:""};
   preview();$("#aImg").addEventListener("input",preview);
+  const useFile=async f=>{if(!f||!/^image\//.test(f.type)){toast("That isn't a photo.");return}
+    $("#aPreview").innerHTML=`<p class="sub">Uploading photo…</p>`;
+    try{const data=await shrink(f);const r=await api("admin/upload",{method:"POST",body:JSON.stringify({data})});$("#aImg").value=r.url;preview();toast("Photo added.")}
+    catch(err){$("#aPreview").innerHTML="";toast(err.message||"Couldn't use that photo.")}};
+  $("#aFile").addEventListener("change",e=>useFile(e.target.files[0]));
+  $("#sheet").addEventListener("paste",e=>{const it=[...(e.clipboardData||{}).items||[]].find(i=>i.type.startsWith("image/"));if(it){e.preventDefault();useFile(it.getAsFile())}});
+  $("#aPasteBtn").addEventListener("click",async()=>{try{const items=await navigator.clipboard.read();for(const i of items){const type=i.types.find(x=>x.startsWith("image/"));if(type){useFile(new File([await i.getType(type)],"photo",{type}));return}}toast("No photo copied yet. Copy the photo on the store's page first.")}catch(_){toast("Your browser blocked pasting. Long-press the photo field and choose Paste, or use Choose a photo.")}});
   $("#sheet").onclick=e=>{const b=e.target.closest("[data-an]");if(b){n=Math.max(1,n+ +b.dataset.an);$("#aN").textContent=n}};
   let lastLooked="";
   const look=async()=>{const u=$("#aUrl").value.trim();if(!/^https?:\/\//.test(u)||u===lastLooked||p.id)return;lastLooked=u;
@@ -224,6 +235,7 @@ function openPhoto(it){
   const prev=()=>{const v=$("#phUrl").value;$("#phPrev").innerHTML=v?`<div class="tile has-photo" style="background:#fff;border-radius:14px;aspect-ratio:16/10;margin-bottom:14px"><img class="photo" src="${esc(v)}" alt="" referrerpolicy="no-referrer"></div>`:""};prev();$("#phUrl").addEventListener("input",prev);
   $("#photoForm").onsubmit=async e=>{e.preventDefault();try{await api("admin/photo",{method:"POST",body:JSON.stringify({id:it.id,image:$("#phUrl").value.trim()})});loadedPhotos.delete(it.id);closeSheet();toast("Photo saved.");lastState="";load()}catch(err){toast(err.message)}};
 }
+function shrink(file){return new Promise((res,rej)=>{const img=new Image();const u=URL.createObjectURL(file);img.onload=()=>{const m=1200,k=Math.min(1,m/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL("image/jpeg",.85))};img.onerror=()=>rej(new Error("Couldn't read that photo."));img.src=u})}
 function openRemove(it){
   openSheet(`<span class="eyebrow">Remove item</span><h3 id="sheetTitle">${esc(it.name)}</h3>
     <p class="sub">This takes it off the registry for everyone. ${gotOf(it)?`<b>${gotOf(it)} already gifted</b>; those gifts stay in your "who gave what" list.`:""}</p>
@@ -246,7 +258,7 @@ document.addEventListener("click",async e=>{
   const b=t.closest("[data-buy]");if(b){openBuy(CATALOG.find(x=>x.id===b.dataset.buy),b);return}
   if(!isOwner)return;
   const w=t.closest("[data-wq]");if(w){const it=CATALOG.find(x=>x.id===w.dataset.wq);const v=Math.max(gotOf(it),Math.max(0,wantOf(it)+ +w.dataset.d));wanted[it.id]=v;render();try{await api("admin/wanted",{method:"POST",body:JSON.stringify({id:it.id,qty:v})})}catch(err){toast(err.message)}return}
-  const ed=t.closest("[data-edit]");if(ed){const it=CATALOG.find(x=>x.id===ed.dataset.edit);openAdd(Object.assign({},it,{image:photoOf(it)&&!String(photoOf(it)).startsWith("/api/")?photoOf(it):""}));return}
+  const ed=t.closest("[data-edit]");if(ed){const it=CATALOG.find(x=>x.id===ed.dataset.edit);openAdd(Object.assign({},it,{image:photoOf(it)&&!String(photoOf(it)).startsWith("/api/img/")?photoOf(it):""}));return}
   const ph=t.closest("[data-photo]");if(ph){openPhoto(CATALOG.find(x=>x.id===ph.dataset.photo));return}
   const pr=t.closest("[data-photo-reset]");if(pr){try{await api("admin/refresh-photo",{method:"POST",body:JSON.stringify({id:pr.dataset.photoReset})});loadedPhotos.delete(pr.dataset.photoReset);closeSheet();toast("Checking the store again…");lastState="";load()}catch(err){toast(err.message)}return}
   const rm=t.closest("[data-remove]");if(rm){openRemove(CATALOG.find(x=>x.id===rm.dataset.remove));return}

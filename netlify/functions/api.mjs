@@ -112,6 +112,13 @@ export default async (req) => {
       return json({ ok: true, id });
     }
 
+    if (path.startsWith("up/") && method === "GET") {
+      const key = "up/" + decodeURIComponent(path.slice(3)).replace(/[^a-z0-9_-]/gi, "");
+      const r = await store().getWithMetadata(key, { type: "arrayBuffer" });
+      if (!r || !r.data) return new Response(null, { status: 404 });
+      return new Response(r.data, { headers: { "content-type": (r.metadata && r.metadata.type) || "image/jpeg", "cache-control": "public, max-age=31536000, immutable" } });
+    }
+
     // Product photo for catalogue items: looked up once from the store page, then cached.
     if (path.startsWith("img/") && method === "GET") {
       const id = decodeURIComponent(path.slice(4));
@@ -136,6 +143,16 @@ export default async (req) => {
       const action = path.slice(6);
       if (action === "check") return json({ ok: true });
 
+      if (action === "upload" && method === "POST") {
+        const { data } = await req.json();
+        const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(data || "");
+        if (!m) return json({ error: "That doesn't look like a photo. Try a JPG or PNG." }, 400);
+        const buf = Buffer.from(m[2], "base64");
+        if (buf.length > 3 * 1024 * 1024) return json({ error: "That photo is too large. Try a smaller one." }, 400);
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        await store().set("up/" + id, buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length), { metadata: { type: m[1] } });
+        return json({ ok: true, url: "/api/up/" + id });
+      }
       if (action === "lookup" && method === "POST") {
         const { url: link } = await req.json();
         return json(await readProduct(link));
@@ -212,7 +229,7 @@ export default async (req) => {
       if (action === "photo") {
         const img = clean(b.image, 1500);
         cfg.images = cfg.images || {};
-        if (img && !/^https?:\/\//i.test(img)) return json({ error: "Please paste a full image link starting with https://" }, 400);
+        if (img && !/^(https?:\/\/|\/api\/up\/)/i.test(img)) return json({ error: "Please paste a full image link starting with https://" }, 400);
         if (img) cfg.images[clean(b.id, 100)] = img; else delete cfg.images[clean(b.id, 100)];
         await saveConfig(cfg);
         return json({ ok: true });
