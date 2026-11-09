@@ -1,5 +1,6 @@
 // Baby Jennings Registry API (Netlify Functions v2 + Netlify Blobs)
 import { getStore } from "@netlify/blobs";
+import TRACKMAP from "./trackmap.mjs";
 
 const store = () => getStore({ name: "registry", consistency: "strong" });
 const json = (data, status = 200) =>
@@ -14,7 +15,7 @@ async function catalog(req) {
 }
 
 async function getConfig() {
-  return (await store().get("config", { type: "json" })) || { items: [], removed: [], wanted: {}, images: {}, overrides: {} };
+  return (await store().get("config", { type: "json" })) || { items: [], removed: [], wanted: {}, images: {}, overrides: {}, live: {} };
 }
 const saveConfig = (c) => store().setJSON("config", c);
 
@@ -94,7 +95,7 @@ export default async (req) => {
       const items = cfg.items.filter((i) => admin || (i.name && i.price != null));
       const ps = purchases.map((p) => admin ? p : { id: p.id, itemId: p.itemId, qty: p.qty, name: p.surprise ? null : p.name, message: p.surprise ? null : p.message, surprise: !!p.surprise, at: p.at });
       const images = Object.assign({}, cfg.images || {}); images.v = cfg.imgV || 0;
-      return json({ items, removed: cfg.removed, wanted: cfg.wanted, images, purchases: ps, overrides: cfg.overrides || {}, admin, ownerReady: !!process.env.ADMIN_PASSWORD });
+      return json({ items, removed: cfg.removed, wanted: cfg.wanted, images, purchases: ps, overrides: cfg.overrides || {}, live: cfg.live || {}, liveAt: cfg.liveAt || null, admin, ownerReady: !!process.env.ADMIN_PASSWORD });
     }
 
     if (path === "purchase" && method === "POST") {
@@ -136,6 +137,31 @@ export default async (req) => {
       }
       if (!cached.image) return new Response(null, { status: 404, headers: { "cache-control": "public, max-age=3600" } });
       return new Response(null, { status: 302, headers: { location: cached.image, "cache-control": "public, max-age=86400" } });
+    }
+
+    // ---------- Daily price sync (key can only update prices) ----------
+    if (path === "sync" && method === "POST") {
+      const key = req.headers.get("x-sync-key");
+      if (!process.env.SYNC_KEY || key !== process.env.SYNC_KEY) return json({ error: "Wrong sync key." }, 401);
+      const b = await req.json();
+      const cfg = await getConfig();
+      const cat = await catalog(req);
+      const live = {};
+      let n = 0;
+      for (const [rawId, v] of Object.entries(b.prices || {})) {
+        const id = TRACKMAP[rawId] || (cat.find((i) => i.id === rawId) ? rawId : null) || (rawId.startsWith("b-") ? rawId.slice(2) : null);
+        if (!id || live[id] || !v || typeof v.price !== "number" || !(v.price > 0)) continue;
+        const e = { price: Math.round(v.price * 100) / 100 };
+        if (typeof v.was === "number" && v.was > e.price * 1.03) e.was = Math.round(v.was * 100) / 100;
+        if (v.store) e.store = clean(v.store, 60);
+        if (v.url && /^https?:\/\//i.test(v.url)) e.url = clean(v.url, 1000);
+        live[id] = e; n++;
+      }
+      cfg.live = live; cfg.liveAt = new Date().toISOString();
+      // keep added items' prices fresh too
+      for (const it of cfg.items) if (live[it.id] && !it.manualPrice) { it.price = live[it.id].price; }
+      await saveConfig(cfg);
+      return json({ ok: true, updated: n });
     }
 
     // ---------- Admin (Matt & Grace) ----------
@@ -197,7 +223,7 @@ export default async (req) => {
         }
         const it = it0;
         for (const k of ["name", "store", "cat", "image", "url"]) if (b[k] != null) it[k] = clean(b[k], 1000);
-        if (b.price != null && b.price !== "") it.price = Number(b.price);
+        if (b.price != null && b.price !== "") { it.price = Number(b.price); it.manualPrice = true; }
         await saveConfig(cfg);
         return json({ ok: true, item: it });
       }

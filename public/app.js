@@ -16,7 +16,7 @@ const ICON={
 };
 const PICKS=new Set(["maxicosi-monitor","eufy-s1-pro","bunjie-bundle","momcozy-kleanpal","teddy-clouds","babybjorn-carrier-mini","jengo-bouncer","sable-nappybag"]);
 
-let BASE=[], CATALOG=[], custom=[], removed=new Set(), wanted={}, purchases=[], images={}, overrides={}, lastState="";
+let BASE=[], CATALOG=[], custom=[], removed=new Set(), wanted={}, purchases=[], images={}, overrides={}, live={}, lastState="";
 const loadedPhotos=new Set();
 window.__photoOk=(el,id)=>{loadedPhotos.add(id);el.parentNode.classList.add("has-photo")};
 let isOwner=false, managing=false, adminKey=null;
@@ -44,7 +44,7 @@ async function api(path,opts={}){
 
 function rebuild(){
   const extra=custom.map(c=>Object.assign({qty:1,cat:"General",order:100000},c,{custom:true,name:c.name||("New item from "+host(c.url)),store:c.store||host(c.url),pending:!c.name||c.price==null}));
-  CATALOG=BASE.map(it=>overrides[it.id]?Object.assign({},it,overrides[it.id]):it).concat(extra).filter(it=>!removed.has(it.id));
+  CATALOG=BASE.map(it=>{const o=overrides[it.id]||{},l=live[it.id];let r=Object.assign({},it);if(l&&o.price==null){r.price=l.price;r.was=l.was||null;if(o.url==null&&l.url){r.url=l.url;if(l.store)r.store=l.store}}return Object.assign(r,o)}).concat(extra).filter(it=>!removed.has(it.id));
 }
 function icon(it,cls){const fg=(TINT[it.cat]||TINT.General)[1];return `<svg class="${cls||"ic"}" viewBox="0 0 64 64" fill="none" stroke="${fg}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[it.cat]||ICON.General}</svg>`}
 function media(it,cls){
@@ -104,7 +104,7 @@ function card(it,i){
   const bg=(TINT[it.cat]||TINT.General)[0];
   const dots=want<=6&&want>0?`<span class="dots">${Array.from({length:want},(_,k)=>`<i class="${k<got?"on":""}"></i>`).join("")}</span>`:"";
   const needTxt=done?"All gifted, thank you":`Still needed: <b class="num">${left}</b> of ${want}`;
-  const badge=PICKS.has(it.id)&&!done?`<span class="badge most">Most wanted</span>`:(want>1&&!done?`<span class="badge">Need ${want}</span>`:"");
+  const badge=it.was&&!done?`<span class="badge sale">On sale · save ${money(it.was-it.price)}</span>`:PICKS.has(it.id)&&!done?`<span class="badge most">Most wanted</span>`:(want>1&&!done?`<span class="badge">Need ${want}</span>`:"");
   const pend=isOwner&&it.pending?`<span class="badge" style="top:auto;bottom:12px">Needs a name &amp; price</span>`:"";
   const owner=managing?`<div class="owner-qty"><span>Wanted</span><span class="stepper"><button type="button" data-wq="${it.id}" data-d="-1" aria-label="Fewer">−</button><output class="num">${want}</output><button type="button" data-wq="${it.id}" data-d="1" aria-label="More">+</button></span></div>
     <div class="acts"><button class="btn" type="button" data-edit="${it.id}">Edit details</button><button class="btn" type="button" data-remove="${it.id}" style="color:#a04545">Remove</button></div>`:"";
@@ -113,7 +113,7 @@ function card(it,i){
     <div class="body">
       <div class="store">${esc(it.store||"Available online")}</div>
       <button class="name" data-open="${it.id}">${esc(it.name)}</button>
-      <div class="row"><span class="price num">${money(it.price)}</span><span class="need">${dots}${needTxt}</span></div>
+      <div class="row"><span class="price num">${it.was?`<s class="was">${money(it.was)}</s> `:""}${money(it.price)}</span><span class="need">${dots}${needTxt}</span></div>
       ${owner}
       <div class="acts">
         <a class="btn" href="${esc(buyUrl(it))}" target="_blank" rel="noopener" ${done?'aria-disabled="true"':""}>${esc(buyLabel(it))} ↗</a>
@@ -146,7 +146,7 @@ function openDetail(it){
   const list=given.length?`<ul class="gifters">${given.map(p=>`<li><b>${p.surprise&&!isOwner?"A surprise gift":esc(p.name||"Someone special")}</b> · ${p.qty} ${p.qty>1?"items":"item"}${p.message?`<small>“${esc(p.message)}”</small>`:""}${isOwner?`<small><button class="btn" style="padding:4px 10px;margin-top:6px" data-undo="${p.id}">Remove this purchase</button></small>`:""}</li>`).join("")}</ul>`:"";
   openSheet(`<div class="detail-tile tile ${loadedPhotos.has(it.id)?"has-photo":""}" style="background:${bg}">${media(it,"")}</div>
     <span class="eyebrow">${esc(it.cat)}</span><h3 id="sheetTitle">${esc(it.name)}</h3>
-    <p class="sub">${it.price!=null?`<b class="num">${money(it.price)}</b> at ${esc(it.store)} · `:""}${left?`Still needed: <b>${left}</b> of ${want}`:"All gifted, thank you"}</p>
+    <p class="sub">${it.price!=null?`${it.was?`<s>${money(it.was)}</s> `:""}<b class="num">${money(it.price)}</b>${it.was?" on sale":""} at ${esc(it.store)} · `:""}${left?`Still needed: <b>${left}</b> of ${want}`:"All gifted, thank you"}</p>
     <div class="acts"><a class="btn" href="${esc(buyUrl(it))}" target="_blank" rel="noopener">${esc(buyLabel(it))} ↗</a><button class="btn primary" type="button" data-buy="${it.id}" ${left?"":'aria-disabled="true"'}>I bought this</button></div>${list}`);
 }
 
@@ -284,7 +284,7 @@ $("#ownerLink").onclick=()=>{if(isOwner){toast("You're already signed in. Your t
 $("#signOut").onclick=()=>{try{localStorage.removeItem("adminKey")}catch(_){}location.hash="";location.reload()};
 
 async function load(){
-  try{const s=await api("state");const sig=JSON.stringify(s);$("#banner").hidden=true;if(sig===lastState)return;lastState=sig;custom=s.items||[];removed=new Set(s.removed||[]);wanted=s.wanted||{};purchases=s.purchases||[];images=s.images||{};overrides=s.overrides||{};render()}
+  try{const s=await api("state");const sig=JSON.stringify(s);$("#banner").hidden=true;if(sig===lastState)return;lastState=sig;custom=s.items||[];removed=new Set(s.removed||[]);wanted=s.wanted||{};purchases=s.purchases||[];images=s.images||{};overrides=s.overrides||{};live=s.live||{};render()}
   catch(_){$("#banner").hidden=false;$("#banner").textContent="Couldn't reach the registry just now. It'll keep trying."}
 }
 
