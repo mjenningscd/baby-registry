@@ -62,13 +62,36 @@ async function readProduct(url) {
         } catch (_) {}
       }
     }
+    // Fallbacks for stores that don't use standard tags (Amazon, Big W, Baby Bunting and others).
+    const pick = (re) => { const m = html.match(re); return m ? decode(m[1]) : null; };
+    if (!name) name = pick(/id=["']productTitle["'][^>]*>\s*([^<]+)</i) || pick(/<h1[^>]*>\s*([^<]{4,160})</i);
+    if (!image) image = pick(/data-old-hires=["']([^"']+)["']/i) || pick(/id=["']landingImage["'][^>]*src=["']([^"']+)["']/i) || pick(/"hiRes"\s*:\s*"([^"]+)"/);
+    if (!price) price = pick(/itemprop=["']price["'][^>]*content=["']([0-9.,]+)["']/i) || pick(/content=["']([0-9.,]+)["'][^>]*itemprop=["']price["']/i) ||
+      pick(/class=["']a-offscreen["'][^>]*>\s*\$\s*([0-9.,]+)/i) || pick(/"priceAmount"\s*:\s*([0-9.]+)/) ||
+      pick(/"(?:sellPrice|salePrice|currentPrice|finalPrice|priceValue|nowPrice|sellingPrice)"\s*:\s*\{?[^0-9{}]{0,40}?([0-9]+(?:\.[0-9]{1,2})?)/) ||
+      pick(/"price"\s*:\s*\{[^}]{0,80}?"(?:value|amount|centAmount)"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)/) ||
+      pick(/"price"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)"?\s*[,}]/);
+    // Shopify stores: ask for the product's own data file.
+    if ((!price || !image) && /\/products\//.test(url)) {
+      try {
+        const j = await (await fetch(url.split(/[?#]/)[0].replace(/\/$/, "") + ".js", { headers: { "user-agent": UA }, signal: ctrl.signal })).json();
+        if (!name && j.title) name = j.title;
+        if (!price && j.price != null) price = j.price / 100;
+        if (!image && j.featured_image) image = j.featured_image;
+      } catch (_) {}
+    }
     if (image && image.startsWith("//")) image = "https:" + image;
     if (image && image.startsWith("/")) image = new URL(image, url).href;
     const p = price != null ? parseFloat(String(price).replace(/[^0-9.]/g, "")) : NaN;
-    return { name: name ? decode(name).trim().replace(/\s*[|–-]\s*[^|–-]{2,40}$/, "") : null, image: image || null, price: isNaN(p) ? null : p, store: site ? decode(site).trim().slice(0, 60) : null };
+    return { name: name ? decode(name).trim().replace(/\s*[|–-]\s*[^|–-]{2,40}$/, "") : null, image: image || null, price: isNaN(p) ? null : p, store: site ? decode(site).trim().slice(0, 60) : storeFromHost(url) };
   } catch (_) {
     return { name: null, image: null, price: null };
   } finally { clearTimeout(t); }
+}
+const STORES = { "babybunting": "Baby Bunting", "bigw": "Big W", "amazon": "Amazon AU", "kmart": "Kmart", "target": "Target", "chemistwarehouse": "Chemist Warehouse", "jbhifi": "JB Hi-Fi", "myer": "Myer", "davidjones": "David Jones", "adairs": "Adairs", "babykingdom": "Baby Kingdom", "babyvillage": "Baby Village", "bubsngrubs": "Bubs n Grubs", "bananababy": "Banana Baby", "kiddiecountry": "Kiddie Country", "harveynorman": "Harvey Norman", "officeworks": "Officeworks", "priceline": "Priceline" };
+function storeFromHost(url) {
+  try { const h = new URL(url).hostname.replace(/^www\./, ""); const k = Object.keys(STORES).find((x) => h.includes(x)); if (k) return STORES[k];
+    const base = h.split(".")[0]; return base.charAt(0).toUpperCase() + base.slice(1); } catch (_) { return null; }
 }
 function findProduct(node) {
   if (!node || typeof node !== "object") return null;
