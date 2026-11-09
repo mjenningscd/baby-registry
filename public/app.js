@@ -181,10 +181,18 @@ function openLogin(){
   openSheet(`<span class="eyebrow">For Matt &amp; Grace</span><h3 id="sheetTitle">Manage the registry</h3><p class="sub">Enter the registry password to add, edit and remove items.</p>
   <form id="loginForm"><div class="field"><label for="pw">Password</label><input id="pw" type="password" required autocomplete="current-password"></div><button class="btn primary" style="width:100%;padding:14px" type="submit">Sign in</button></form>`);
   $("#loginForm").onsubmit=async e=>{e.preventDefault();adminKey=$("#pw").value;
-    try{await api("admin/check");try{localStorage.setItem("adminKey",adminKey)}catch(_){}isOwner=true;closeSheet();showOwner();await load();toast("Signed in. Your tools are at the top of the page.")}
+    try{await api("admin/check");try{localStorage.setItem("adminKey",adminKey)}catch(_){}isOwner=true;closeSheet();showOwner();await load();toast("Signed in. Your tools are at the top of the page.");grabbed()}
     catch(_){adminKey=null;toast("That password didn't work.")}};
 }
 function showOwner(){$("#ownerBar").hidden=false}
+function grabbed(){
+  if(!location.hash.startsWith("#add="))return;
+  if(!isOwner){openLogin();return}
+  let d;try{d=JSON.parse(decodeURIComponent(location.hash.slice(5)))}catch(_){return}
+  history.replaceState(null,"",location.pathname);
+  let st=d.site||"";if(!st){try{const h=new URL(d.url).hostname.replace(/^www\./,"");const M={babybunting:"Baby Bunting",bigw:"Big W",amazon:"Amazon AU",kmart:"Kmart",target:"Target",chemistwarehouse:"Chemist Warehouse",jbhifi:"JB Hi-Fi",myer:"Myer",adairs:"Adairs"};const k=Object.keys(M).find(x=>h.includes(x));st=k?M[k]:h.split(".")[0].replace(/^./,c=>c.toUpperCase())}catch(_){}}
+  openAdd({url:d.url,name:d.name,price:d.price,image:d.image,store:st,_grabbed:true});
+}
 function openAdd(prefill){
   let n=1;const p=prefill||{};
   openSheet(`<span class="eyebrow">Add to the registry</span><h3 id="sheetTitle">${p.id?"Edit item":"Add an item"}</h3>
@@ -302,7 +310,8 @@ async function load(){
   render();await load();
   if(isOwner){try{const d=JSON.parse(localStorage.getItem("draft")||"null");if(d){const it=d.id&&CATALOG.find(x=>x.id===d.id);openAdd(Object.assign({},it||{},{id:d.id||undefined,_draft:d.v}))}}catch(_){}}
   if(location.hash==="#manage"&&!isOwner)openLogin();
-  addEventListener("hashchange",()=>{if(location.hash==="#manage"&&!isOwner)openLogin()});
+  addEventListener("hashchange",()=>{if(location.hash==="#manage"&&!isOwner)openLogin();grabbed()});
+  grabbed();
   setInterval(()=>{if(!document.hidden&&!$("#sheet").classList.contains("on"))load()},20000);
 })();
 })();
