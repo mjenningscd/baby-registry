@@ -139,7 +139,7 @@ function render(){
 
 /* Sheets */
 function openSheet(html){$("#sheet").innerHTML=`<button class="close" type="button" data-close aria-label="Close">×</button>`+html;$("#sheet").classList.add("on");$("#scrim").classList.add("on");setTimeout(()=>{const f=$("#sheet input, #sheet button:not(.close)");f&&f.focus()},250)}
-function closeSheet(){$("#sheet").classList.remove("on");$("#scrim").classList.remove("on");$("#sheet").onclick=null}
+function closeSheet(){try{localStorage.removeItem("draft")}catch(_){}$("#sheet").classList.remove("on");$("#scrim").classList.remove("on");$("#sheet").onclick=null}
 function toast(t){const el=$("#toast");el.textContent=t;el.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("on"),3000)}
 
 function openDetail(it){
@@ -214,7 +214,11 @@ function openAdd(prefill){
   $("#sheet").addEventListener("paste",e=>{const it=[...(e.clipboardData||{}).items||[]].find(i=>i.type.startsWith("image/"));if(it){e.preventDefault();useFile(it.getAsFile())}});
   $("#aPasteBtn").addEventListener("click",async()=>{try{const items=await navigator.clipboard.read();for(const i of items){const type=i.types.find(x=>x.startsWith("image/"));if(type){useFile(new File([await i.getType(type)],"photo",{type}));return}}toast("No photo copied yet. Copy the photo on the store's page first.")}catch(_){toast("Your browser blocked pasting. Long-press the photo field and choose Paste, or use Choose a photo.")}});
   $("#sheet").onclick=e=>{const b=e.target.closest("[data-an]");if(b){n=Math.max(1,n+ +b.dataset.an);$("#aN").textContent=n}};
-  let lastLooked=p.url||"";
+  const F=["aUrl","aName","aPrice","aStore","aImg","aCat"];
+  const saveDraft=()=>{try{const v={};F.forEach(k=>v[k]=$("#"+k).value);localStorage.setItem("draft",JSON.stringify({id:p.id||null,v}))}catch(_){}};
+  $("#addForm").addEventListener("input",saveDraft);$("#addForm").addEventListener("change",saveDraft);
+  if(p._draft){F.forEach(k=>{if(p._draft[k]!=null)$("#"+k).value=p._draft[k]});preview()}
+  let lastLooked=p._draft?p._draft.aUrl:(p.url||"");
   const look=async()=>{const u=$("#aUrl").value.trim();if(!/^https?:\/\//.test(u)||u===lastLooked)return;lastLooked=u;
     $("#aPreview").innerHTML=`<p class="sub">Reading the store page…</p>`;
     try{const r=await api("admin/lookup",{method:"POST",body:JSON.stringify({url:u})});
@@ -261,7 +265,7 @@ function openGifts(){
 
 document.addEventListener("click",async e=>{
   const t=e.target;
-  if(t.closest("[data-close]")||t===$("#scrim")){closeSheet();return}
+  if(t.closest("[data-close]")||(t===$("#scrim")&&!$("#addForm"))){closeSheet();return}
   const c=t.closest("[data-cat]");if(c){cat=c.dataset.cat;render();return}
   const s=t.closest("[data-show]");if(s){show=s.dataset.show;document.querySelectorAll("[data-show]").forEach(b=>b.setAttribute("aria-pressed",b===s));render();return}
   const o=t.closest("[data-open]");if(o){openDetail(CATALOG.find(x=>x.id===o.dataset.open));return}
@@ -277,7 +281,7 @@ document.addEventListener("click",async e=>{
   const rs=t.closest("[data-restore]");if(rs){try{await api("admin/restore",{method:"POST",body:JSON.stringify({id:rs.dataset.restore})});closeSheet();toast("It's back on the registry.");load()}catch(err){toast(err.message)}return}
   const u=t.closest("[data-undo]");if(u){try{await api("admin/undo",{method:"POST",body:JSON.stringify({id:u.dataset.undo})});closeSheet();toast("Purchase removed.");load()}catch(err){toast(err.message)}return}
 });
-document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#addForm"))closeSheet()});
 $("#q").addEventListener("input",e=>{query=e.target.value.trim().toLowerCase();render()});
 $("#sort").addEventListener("change",e=>{sort=e.target.value;render()});
 $("#manageBtn").onclick=()=>{managing=!managing;$("#manageBtn").textContent=managing?"Done editing":"Edit or remove items";render()};
@@ -296,6 +300,7 @@ async function load(){
   BASE=await (await fetch("/catalog.json")).json();
   if(adminKey){try{await api("admin/check");isOwner=true;showOwner()}catch(_){adminKey=null;try{localStorage.removeItem("adminKey")}catch(_){}}}
   render();await load();
+  if(isOwner){try{const d=JSON.parse(localStorage.getItem("draft")||"null");if(d){const it=d.id&&CATALOG.find(x=>x.id===d.id);openAdd(Object.assign({},it||{},{id:d.id||undefined,_draft:d.v}))}}catch(_){}}
   if(location.hash==="#manage"&&!isOwner)openLogin();
   addEventListener("hashchange",()=>{if(location.hash==="#manage"&&!isOwner)openLogin()});
   setInterval(()=>{if(!document.hidden&&!$("#sheet").classList.contains("on"))load()},20000);
