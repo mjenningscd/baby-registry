@@ -222,7 +222,10 @@ function openAdd(prefill){
       $("#aStore").value=r.store||host(u);got.push("store");
       if(r.name&&(!p.id||!$("#aName").value))$("#aName").value=r.name;
       preview();
-      toast(got.length>1?"Updated the "+got.join(", ")+" from the new link.":"This store didn't share its photo or price. Add them below.");
+      const miss=[];if(r.price==null)miss.push("price");if(!r.image)miss.push("photo");
+      $("#aPrice").style.borderColor=r.price==null?"#a8772a":"";$("#aPrice").style.background=r.price==null?"#fbf0d6":"";
+      if(r.price==null){$("#aPrice").placeholder="Type the price from the store page";}
+      toast(miss.length?("Updated the "+got.join(", ")+". "+$("#aStore").value+" doesn't share its "+miss.join(" or ")+", so please add "+(miss.length>1?"them":"it")+" below."):"Updated the "+got.join(", ")+" from the new link.");
       if(!r.image)$("#aPreview").innerHTML=`<p class="sub">This store didn't share its photo. Copy the photo on its page and tap Paste copied photo.</p>`;
     }catch(_){$("#aPreview").innerHTML=`<p class="sub">Couldn't read that page. Add the details below instead.</p>`}};
   $("#aUrl").addEventListener("change",look);$("#aUrl").addEventListener("paste",()=>setTimeout(look,50));
