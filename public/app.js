@@ -184,7 +184,7 @@ function openLogin(){
     try{await api("admin/check");try{localStorage.setItem("adminKey",adminKey)}catch(_){}isOwner=true;closeSheet();showOwner();await load();toast("Signed in. Your tools are at the top of the page.");grabbed()}
     catch(_){adminKey=null;toast("That password didn't work.")}};
 }
-function showOwner(){$("#ownerBar").hidden=false}
+function showOwner(){$("#ownerBar").hidden=false;const ib=$("#importBtn");if(ib&&!location.hostname.includes("netlify")){ib.hidden=false;ib.onclick=async()=>{if(!confirm("Copy everything from the old Netlify site (gifts, edits, photos) into this one? This replaces what's here."))return;ib.textContent="Copying…";try{const r=await api("admin/import",{method:"POST",body:"{}"});toast("Done: "+r.items+" added items, "+r.gifts+" gifts, "+r.photos+" photos.");ib.textContent="Bring over old site";await load()}catch(err){toast(err.message);ib.textContent="Bring over old site"}}}}
 function grabbed(){
   if(!location.hash.startsWith("#add="))return;
   if(!isOwner){openLogin();return}
