@@ -95,7 +95,7 @@ export default async (req) => {
       const items = cfg.items.filter((i) => admin || (i.name && i.price != null));
       const ps = purchases.map((p) => admin ? p : { id: p.id, itemId: p.itemId, qty: p.qty, name: p.surprise ? null : p.name, message: p.surprise ? null : p.message, surprise: !!p.surprise, at: p.at });
       const images = Object.assign({}, cfg.images || {}); images.v = cfg.imgV || 0;
-      return json({ items, removed: cfg.removed, wanted: cfg.wanted, images, purchases: ps, overrides: cfg.overrides || {}, live: cfg.live || {}, liveAt: cfg.liveAt || null, admin, ownerReady: !!process.env.ADMIN_PASSWORD });
+      return json({ items, removed: cfg.removed, wanted: cfg.wanted, images, purchases: ps, overrides: cfg.overrides || {}, live: cfg.live || {}, liveAt: cfg.liveAt || null, picks: cfg.picks || null, admin, ownerReady: !!process.env.ADMIN_PASSWORD });
     }
 
     if (path === "purchase" && method === "POST") {
@@ -226,6 +226,15 @@ export default async (req) => {
         if (b.price != null && b.price !== "") { it.price = Number(b.price); it.manualPrice = true; }
         await saveConfig(cfg);
         return json({ ok: true, item: it });
+      }
+      if (action === "pick") {
+        const id = clean(b.id, 100);
+        let picks = cfg.picks || ["maxicosi-monitor","eufy-s1-pro","bunjie-bundle","momcozy-kleanpal","teddy-clouds","babybjorn-carrier-mini","jengo-bouncer","sable-nappybag"];
+        picks = picks.filter(x => x !== id);
+        if (b.on) picks.push(id);
+        cfg.picks = picks;
+        await saveConfig(cfg);
+        return json({ ok: true, picks });
       }
       if (action === "wanted") {
         cfg.wanted[clean(b.id, 100)] = Math.max(0, parseInt(b.qty, 10) || 0);

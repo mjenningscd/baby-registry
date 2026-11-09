@@ -14,7 +14,8 @@ const ICON={
  "Bathing":'<path d="M8 30h48v6c0 9-7 16-16 16H24c-9 0-16-7-16-16z"/><path d="M14 30V14a6 6 0 0 1 12 0"/><circle cx="40" cy="18" r="3"/><circle cx="48" cy="12" r="2"/>',
  "General":'<rect x="10" y="22" width="44" height="30" rx="3"/><path d="M8 14h48v8H8zM32 14v38"/><path d="M32 14c-4-8-14-8-12 0M32 14c4-8 14-8 12 0"/>'
 };
-const PICKS=new Set(["maxicosi-monitor","eufy-s1-pro","bunjie-bundle","momcozy-kleanpal","teddy-clouds","babybjorn-carrier-mini","jengo-bouncer","sable-nappybag"]);
+const DEFAULT_PICKS=["maxicosi-monitor","eufy-s1-pro","bunjie-bundle","momcozy-kleanpal","teddy-clouds","babybjorn-carrier-mini","jengo-bouncer","sable-nappybag"];
+let PICKS=new Set(DEFAULT_PICKS);
 
 let BASE=[], CATALOG=[], custom=[], removed=new Set(), wanted={}, purchases=[], images={}, overrides={}, live={}, lastState="";
 const loadedPhotos=new Set();
@@ -107,6 +108,7 @@ function card(it,i){
   const badge=it.was&&!done?`<span class="badge sale">On sale · save ${money(it.was-it.price)}</span>`:PICKS.has(it.id)&&!done?`<span class="badge most">Most wanted</span>`:(want>1&&!done?`<span class="badge">Need ${want}</span>`:"");
   const pend=isOwner&&it.pending?`<span class="badge" style="top:auto;bottom:12px">Needs a name &amp; price</span>`:"";
   const owner=managing?`<div class="owner-qty"><span>Wanted</span><span class="stepper"><button type="button" data-wq="${it.id}" data-d="-1" aria-label="Fewer">−</button><output class="num">${want}</output><button type="button" data-wq="${it.id}" data-d="1" aria-label="More">+</button></span></div>
+    <button class="btn pick-btn ${PICKS.has(it.id)?"on":""}" type="button" data-pick="${it.id}">${PICKS.has(it.id)?"★ Most wanted":"☆ Mark as most wanted"}</button>
     <div class="acts"><button class="btn" type="button" data-edit="${it.id}">Edit details</button><button class="btn" type="button" data-remove="${it.id}" style="color:#a04545">Remove</button></div>`:"";
   return `<article class="card ${done?"done":""}" style="animation-delay:${Math.min(i,16)*30}ms">
     <button class="tile ${loadedPhotos.has(it.id)?"has-photo":""}" style="background:${bg}" data-open="${it.id}" aria-label="More about ${esc(it.name)}">${media(it)}${badge}${pend}${done?'<span class="stamp">Gifted ♡</span>':""}</button>
@@ -265,6 +267,7 @@ document.addEventListener("click",async e=>{
   const o=t.closest("[data-open]");if(o){openDetail(CATALOG.find(x=>x.id===o.dataset.open));return}
   const b=t.closest("[data-buy]");if(b){openBuy(CATALOG.find(x=>x.id===b.dataset.buy),b);return}
   if(!isOwner)return;
+  const pk=t.closest("[data-pick]");if(pk){const id=pk.dataset.pick,on=!PICKS.has(id);on?PICKS.add(id):PICKS.delete(id);render();try{await api("admin/pick",{method:"POST",body:JSON.stringify({id,on})})}catch(err){toast(err.message)}return}
   const w=t.closest("[data-wq]");if(w){const it=CATALOG.find(x=>x.id===w.dataset.wq);const v=Math.max(gotOf(it),Math.max(0,wantOf(it)+ +w.dataset.d));wanted[it.id]=v;render();try{await api("admin/wanted",{method:"POST",body:JSON.stringify({id:it.id,qty:v})})}catch(err){toast(err.message)}return}
   const ed=t.closest("[data-edit]");if(ed){const it=CATALOG.find(x=>x.id===ed.dataset.edit);openAdd(Object.assign({},it,{image:photoOf(it)&&!String(photoOf(it)).startsWith("/api/img/")?photoOf(it):""}));return}
   const ph=t.closest("[data-photo]");if(ph){openPhoto(CATALOG.find(x=>x.id===ph.dataset.photo));return}
@@ -284,7 +287,7 @@ $("#ownerLink").onclick=()=>{if(isOwner){toast("You're already signed in. Your t
 $("#signOut").onclick=()=>{try{localStorage.removeItem("adminKey")}catch(_){}location.hash="";location.reload()};
 
 async function load(){
-  try{const s=await api("state");const sig=JSON.stringify(s);$("#banner").hidden=true;if(sig===lastState)return;lastState=sig;custom=s.items||[];removed=new Set(s.removed||[]);wanted=s.wanted||{};purchases=s.purchases||[];images=s.images||{};overrides=s.overrides||{};live=s.live||{};render()}
+  try{const s=await api("state");const sig=JSON.stringify(s);$("#banner").hidden=true;if(sig===lastState)return;lastState=sig;custom=s.items||[];removed=new Set(s.removed||[]);wanted=s.wanted||{};purchases=s.purchases||[];images=s.images||{};overrides=s.overrides||{};live=s.live||{};PICKS=new Set(s.picks||DEFAULT_PICKS);render()}
   catch(_){$("#banner").hidden=false;$("#banner").textContent="Couldn't reach the registry just now. It'll keep trying."}
 }
 
