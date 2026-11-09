@@ -212,14 +212,19 @@ function openAdd(prefill){
   $("#sheet").addEventListener("paste",e=>{const it=[...(e.clipboardData||{}).items||[]].find(i=>i.type.startsWith("image/"));if(it){e.preventDefault();useFile(it.getAsFile())}});
   $("#aPasteBtn").addEventListener("click",async()=>{try{const items=await navigator.clipboard.read();for(const i of items){const type=i.types.find(x=>x.startsWith("image/"));if(type){useFile(new File([await i.getType(type)],"photo",{type}));return}}toast("No photo copied yet. Copy the photo on the store's page first.")}catch(_){toast("Your browser blocked pasting. Long-press the photo field and choose Paste, or use Choose a photo.")}});
   $("#sheet").onclick=e=>{const b=e.target.closest("[data-an]");if(b){n=Math.max(1,n+ +b.dataset.an);$("#aN").textContent=n}};
-  let lastLooked="";
-  const look=async()=>{const u=$("#aUrl").value.trim();if(!/^https?:\/\//.test(u)||u===lastLooked||p.id)return;lastLooked=u;
+  let lastLooked=p.url||"";
+  const look=async()=>{const u=$("#aUrl").value.trim();if(!/^https?:\/\//.test(u)||u===lastLooked)return;lastLooked=u;
     $("#aPreview").innerHTML=`<p class="sub">Reading the store page…</p>`;
     try{const r=await api("admin/lookup",{method:"POST",body:JSON.stringify({url:u})});
-      if(r.name&&!$("#aName").value)$("#aName").value=r.name;if(r.price!=null&&!$("#aPrice").value)$("#aPrice").value=r.price;
-      if(r.image)$("#aImg").value=r.image;if(!$("#aStore").value)$("#aStore").value=host(u);preview();
-      if(!r.name&&!r.image)$("#aPreview").innerHTML=`<p class="sub">This store didn't share its details, so please type them in.</p>`;
-    }catch(_){$("#aPreview").innerHTML=`<p class="sub">Couldn't read that page. Type the details in instead.</p>`}};
+      const got=[];
+      if(r.image){$("#aImg").value=r.image;got.push("photo")}
+      if(r.price!=null){$("#aPrice").value=r.price;got.push("price")}
+      $("#aStore").value=r.store||host(u);got.push("store");
+      if(r.name&&(!p.id||!$("#aName").value))$("#aName").value=r.name;
+      preview();
+      toast(got.length>1?"Updated the "+got.join(", ")+" from the new link.":"This store didn't share its photo or price. Add them below.");
+      if(!r.image)$("#aPreview").innerHTML=`<p class="sub">This store didn't share its photo. Copy the photo on its page and tap Paste copied photo.</p>`;
+    }catch(_){$("#aPreview").innerHTML=`<p class="sub">Couldn't read that page. Add the details below instead.</p>`}};
   $("#aUrl").addEventListener("change",look);$("#aUrl").addEventListener("paste",()=>setTimeout(look,50));
   $("#addForm").onsubmit=async e=>{e.preventDefault();const btn=e.submitter||$("#addForm button[type=submit]");btn.disabled=true;
     const body={id:p.id,url:$("#aUrl").value.trim(),name:$("#aName").value.trim(),price:$("#aPrice").value.replace(/[^0-9.]/g,""),store:$("#aStore").value.trim(),image:$("#aImg").value.trim(),cat:$("#aCat").value,qty:n};

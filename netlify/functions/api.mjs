@@ -47,6 +47,7 @@ async function readProduct(url) {
     let name = meta("og:title") || (html.match(/<title[^>]*>([^<]+)</i) || [])[1];
     let image = meta("og:image:secure_url") || meta("og:image") || meta("twitter:image");
     let price = meta("product:price:amount") || meta("og:price:amount");
+    const site = meta("og:site_name");
     if (!price || !image) {
       for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
         try {
@@ -63,7 +64,7 @@ async function readProduct(url) {
     if (image && image.startsWith("//")) image = "https:" + image;
     if (image && image.startsWith("/")) image = new URL(image, url).href;
     const p = price != null ? parseFloat(String(price).replace(/[^0-9.]/g, "")) : NaN;
-    return { name: name ? decode(name).trim().replace(/\s*[|–-]\s*[^|–-]{2,40}$/, "") : null, image: image || null, price: isNaN(p) ? null : p };
+    return { name: name ? decode(name).trim().replace(/\s*[|–-]\s*[^|–-]{2,40}$/, "") : null, image: image || null, price: isNaN(p) ? null : p, store: site ? decode(site).trim().slice(0, 60) : null };
   } catch (_) {
     return { name: null, image: null, price: null };
   } finally { clearTimeout(t); }
