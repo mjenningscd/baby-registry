@@ -16,7 +16,7 @@ const ICON={
 };
 const PICKS=new Set(["maxicosi-monitor","eufy-s1-pro","bunjie-bundle","momcozy-kleanpal","teddy-clouds","babybjorn-carrier-mini","jengo-bouncer","sable-nappybag"]);
 
-let BASE=[], CATALOG=[], custom=[], removed=new Set(), wanted={}, purchases=[], images={}, lastState="";
+let BASE=[], CATALOG=[], custom=[], removed=new Set(), wanted={}, purchases=[], images={}, overrides={}, lastState="";
 const loadedPhotos=new Set();
 window.__photoOk=(el,id)=>{loadedPhotos.add(id);el.parentNode.classList.add("has-photo")};
 let isOwner=false, managing=false, adminKey=null;
@@ -44,7 +44,7 @@ async function api(path,opts={}){
 
 function rebuild(){
   const extra=custom.map(c=>Object.assign({qty:1,cat:"General",order:100000},c,{custom:true,name:c.name||("New item from "+host(c.url)),store:c.store||host(c.url),pending:!c.name||c.price==null}));
-  CATALOG=BASE.concat(extra).filter(it=>!removed.has(it.id));
+  CATALOG=BASE.map(it=>overrides[it.id]?Object.assign({},it,overrides[it.id]):it).concat(extra).filter(it=>!removed.has(it.id));
 }
 function icon(it,cls){const fg=(TINT[it.cat]||TINT.General)[1];return `<svg class="${cls||"ic"}" viewBox="0 0 64 64" fill="none" stroke="${fg}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[it.cat]||ICON.General}</svg>`}
 function media(it,cls){
@@ -107,7 +107,7 @@ function card(it,i){
   const badge=PICKS.has(it.id)&&!done?`<span class="badge most">Most wanted</span>`:(want>1&&!done?`<span class="badge">Need ${want}</span>`:"");
   const pend=isOwner&&it.pending?`<span class="badge" style="top:auto;bottom:12px">Needs a name &amp; price</span>`:"";
   const owner=managing?`<div class="owner-qty"><span>Wanted</span><span class="stepper"><button type="button" data-wq="${it.id}" data-d="-1" aria-label="Fewer">−</button><output class="num">${want}</output><button type="button" data-wq="${it.id}" data-d="1" aria-label="More">+</button></span></div>
-    <div class="acts">${it.custom?`<button class="btn" type="button" data-edit="${it.id}">Edit details</button>`:`<button class="btn" type="button" data-photo="${it.id}">Change photo</button>`}<button class="btn" type="button" data-remove="${it.id}" style="color:#a04545">Remove</button></div>`:"";
+    <div class="acts"><button class="btn" type="button" data-edit="${it.id}">Edit details</button><button class="btn" type="button" data-remove="${it.id}" style="color:#a04545">Remove</button></div>`:"";
   return `<article class="card ${done?"done":""}" style="animation-delay:${Math.min(i,16)*30}ms">
     <button class="tile ${loadedPhotos.has(it.id)?"has-photo":""}" style="background:${bg}" data-open="${it.id}" aria-label="More about ${esc(it.name)}">${media(it)}${badge}${pend}${done?'<span class="stamp">Gifted ♡</span>':""}</button>
     <div class="body">
@@ -186,7 +186,7 @@ function showOwner(){$("#ownerBar").hidden=false}
 function openAdd(prefill){
   let n=1;const p=prefill||{};
   openSheet(`<span class="eyebrow">Add to the registry</span><h3 id="sheetTitle">${p.id?"Edit item":"Add an item"}</h3>
-    <p class="sub">${p.id?"Change any details below.":"Paste a product link and we'll fill in the name, price and photo. Check them, then add it."}</p>
+    <p class="sub">${p.id?"Change any details below. For the photo: on the store's product page, right-click (or long-press) the main photo, choose Copy Image Address, and paste it in Photo link.":"Paste a product link and we'll fill in the name, price and photo. Check them, then add it."}</p>
     <form id="addForm">
       <div class="field"><label for="aUrl">Product link</label><input id="aUrl" type="url" required placeholder="https://www.babybunting.com.au/product/…" value="${esc(p.url||"")}"></div>
       <div id="aPreview"></div>
@@ -246,7 +246,7 @@ document.addEventListener("click",async e=>{
   const b=t.closest("[data-buy]");if(b){openBuy(CATALOG.find(x=>x.id===b.dataset.buy),b);return}
   if(!isOwner)return;
   const w=t.closest("[data-wq]");if(w){const it=CATALOG.find(x=>x.id===w.dataset.wq);const v=Math.max(gotOf(it),Math.max(0,wantOf(it)+ +w.dataset.d));wanted[it.id]=v;render();try{await api("admin/wanted",{method:"POST",body:JSON.stringify({id:it.id,qty:v})})}catch(err){toast(err.message)}return}
-  const ed=t.closest("[data-edit]");if(ed){openAdd(custom.find(x=>x.id===ed.dataset.edit));return}
+  const ed=t.closest("[data-edit]");if(ed){const it=CATALOG.find(x=>x.id===ed.dataset.edit);openAdd(Object.assign({},it,{image:photoOf(it)&&!String(photoOf(it)).startsWith("/api/")?photoOf(it):""}));return}
   const ph=t.closest("[data-photo]");if(ph){openPhoto(CATALOG.find(x=>x.id===ph.dataset.photo));return}
   const pr=t.closest("[data-photo-reset]");if(pr){try{await api("admin/refresh-photo",{method:"POST",body:JSON.stringify({id:pr.dataset.photoReset})});loadedPhotos.delete(pr.dataset.photoReset);closeSheet();toast("Checking the store again…");lastState="";load()}catch(err){toast(err.message)}return}
   const rm=t.closest("[data-remove]");if(rm){openRemove(CATALOG.find(x=>x.id===rm.dataset.remove));return}
@@ -264,7 +264,7 @@ $("#ownerLink").onclick=()=>{if(isOwner){toast("You're already signed in. Your t
 $("#signOut").onclick=()=>{try{localStorage.removeItem("adminKey")}catch(_){}location.hash="";location.reload()};
 
 async function load(){
-  try{const s=await api("state");const sig=JSON.stringify(s);$("#banner").hidden=true;if(sig===lastState)return;lastState=sig;custom=s.items||[];removed=new Set(s.removed||[]);wanted=s.wanted||{};purchases=s.purchases||[];images=s.images||{};render()}
+  try{const s=await api("state");const sig=JSON.stringify(s);$("#banner").hidden=true;if(sig===lastState)return;lastState=sig;custom=s.items||[];removed=new Set(s.removed||[]);wanted=s.wanted||{};purchases=s.purchases||[];images=s.images||{};overrides=s.overrides||{};render()}
   catch(_){$("#banner").hidden=false;$("#banner").textContent="Couldn't reach the registry just now. It'll keep trying."}
 }
 

@@ -14,7 +14,7 @@ async function catalog(req) {
 }
 
 async function getConfig() {
-  return (await store().get("config", { type: "json" })) || { items: [], removed: [], wanted: {}, images: {} };
+  return (await store().get("config", { type: "json" })) || { items: [], removed: [], wanted: {}, images: {}, overrides: {} };
 }
 const saveConfig = (c) => store().setJSON("config", c);
 
@@ -93,7 +93,7 @@ export default async (req) => {
       const items = cfg.items.filter((i) => admin || (i.name && i.price != null));
       const ps = purchases.map((p) => admin ? p : { id: p.id, itemId: p.itemId, qty: p.qty, name: p.surprise ? null : p.name, message: p.surprise ? null : p.message, surprise: !!p.surprise, at: p.at });
       const images = Object.assign({}, cfg.images || {}); images.v = cfg.imgV || 0;
-      return json({ items, removed: cfg.removed, wanted: cfg.wanted, images, purchases: ps, admin, ownerReady: !!process.env.ADMIN_PASSWORD });
+      return json({ items, removed: cfg.removed, wanted: cfg.wanted, images, purchases: ps, overrides: cfg.overrides || {}, admin, ownerReady: !!process.env.ADMIN_PASSWORD });
     }
 
     if (path === "purchase" && method === "POST") {
@@ -162,8 +162,22 @@ export default async (req) => {
         return json({ ok: true, item });
       }
       if (action === "edit") {
-        const it = cfg.items.find((i) => i.id === b.id);
-        if (!it) return json({ error: "Not found" }, 404);
+        const it0 = cfg.items.find((i) => i.id === b.id);
+        if (!it0) {
+          // catalogue item: store the changes as an override
+          const cat = await catalog(req);
+          if (!cat.find((i) => i.id === b.id)) return json({ error: "Not found" }, 404);
+          cfg.overrides = cfg.overrides || {};
+          const o = cfg.overrides[b.id] || {};
+          for (const k of ["name", "store", "cat", "url"]) if (b[k] != null && b[k] !== "") o[k] = clean(b[k], 1000);
+          if (b.price != null && b.price !== "") o.price = Number(b.price);
+          cfg.images = cfg.images || {};
+          if (b.image) cfg.images[b.id] = clean(b.image, 1500);
+          cfg.overrides[b.id] = o;
+          await saveConfig(cfg);
+          return json({ ok: true });
+        }
+        const it = it0;
         for (const k of ["name", "store", "cat", "image", "url"]) if (b[k] != null) it[k] = clean(b[k], 1000);
         if (b.price != null && b.price !== "") it.price = Number(b.price);
         await saveConfig(cfg);
