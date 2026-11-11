@@ -1274,5 +1274,16 @@
   "store": "Baby Bunting",
   "url": "https://www.babybunting.com.au/product/bubba-blue-confetti-blanket-white-136491",
   "order": 119
+ },
+ {
+  "id": "lamaze-freddie-firefly",
+  "name": "Lamaze Freddie the Firefly",
+  "cat": "Playing",
+  "qty": 1,
+  "price": 24.99,
+  "store": "Baby Bunting",
+  "url": "https://www.babybunting.com.au/product/lamaze-freddie-the-firefly-27417",
+  "order": 120,
+  "image": "https://cdn.shopify.com/s/files/1/0672/4570/3270/files/l27024b_-_freddie_the_firefly_1.jpg"
  }
 ]
