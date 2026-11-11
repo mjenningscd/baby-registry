@@ -1285,5 +1285,26 @@
   "url": "https://www.babybunting.com.au/product/lamaze-freddie-the-firefly-27417",
   "order": 120,
   "image": "https://cdn.shopify.com/s/files/1/0672/4570/3270/files/l27024b_-_freddie_the_firefly_1.jpg"
+ },
+ {
+  "id": "oscar-florri-woodland-bear",
+  "name": "Oscar & Florri Woodland Bear Pram Toy",
+  "cat": "Playing",
+  "qty": 1,
+  "price": 14.99,
+  "store": "Baby Bunting",
+  "url": "https://www.babybunting.com.au/product/oscar-florri-woodland-bear-pram-toy-126380",
+  "order": 121
+ },
+ {
+  "id": "bluey-waterslide",
+  "name": "Tomy Toomies Bluey's Waterslide Bath Toy",
+  "cat": "Bathing",
+  "qty": 1,
+  "price": 14.99,
+  "store": "Baby Bunting",
+  "url": "https://www.babybunting.com.au/product/tomy-toomies-bluey-s-waterslide-133690",
+  "order": 122,
+  "image": "https://cdn.shopify.com/s/files/1/0256/1471/2913/files/E73693.jpg"
  }
 ]
