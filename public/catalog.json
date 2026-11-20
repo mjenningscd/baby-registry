@@ -1327,5 +1327,15 @@
   "store": "Baby Bunting",
   "url": "https://www.babybunting.com.au/product/chicco-nipple-shield-silicone-m-l-2pack-130285",
   "order": 124
+ },
+ {
+  "id": "braun-thermoscan-7plus",
+  "name": "Braun ThermoScan 7+ Ear Thermometer with Night Mode",
+  "cat": "Health & safety",
+  "qty": 1,
+  "price": 149.99,
+  "store": "Chemist Warehouse",
+  "url": "https://www.chemistwarehouse.com.au/buy/133924/braun-thermoscan-7-ear-thermometer",
+  "order": 125
  }
 ]
